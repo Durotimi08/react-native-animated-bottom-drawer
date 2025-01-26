@@ -15,13 +15,13 @@ import {
   Easing,
   Keyboard,
 } from 'react-native';
-import {styles} from './styles';
+import { styles } from './styles';
 import {
   BottomDrawerMethods,
   BottomDrawerWithRef,
   SnapToPositionConfig,
 } from '..';
-import {BottomSheetContext} from './hooks/useBottomDrawer';
+import { BottomSheetContext } from './hooks/useBottomDrawer';
 import {
   defaultBackdropColor,
   defaultBackdropOpacity,
@@ -44,7 +44,7 @@ const BottomDrawer: ForwardRefRenderFunction<
     onClose = null,
     openDuration = defaultOpenDuration,
     closeDuration = defaultCloseDuration,
-    customStyles = {handleContainer: {}, handle: {}, container: {}},
+    customStyles = { handleContainer: {}, handle: {}, container: {} },
     onOpen = null,
     closeOnDragDown = true,
     closeOnPressBack = true,
@@ -86,7 +86,7 @@ const BottomDrawer: ForwardRefRenderFunction<
       toValue: screenHeight - _val,
       easing: Easing.out(Easing.back(1)),
       duration: openDuration,
-    }).start(({finished}) => {
+    }).start(({ finished }) => {
       if (finished) {
         onOpen && onOpen();
       }
@@ -128,7 +128,7 @@ const BottomDrawer: ForwardRefRenderFunction<
     position: number,
     config?: SnapToPositionConfig,
   ) => {
-    const {resetLastPosition = true} = config || {};
+    const { resetLastPosition = true } = config || {};
     if (!modalVisible) {
       return console.warn(
         'snapToPosition can be used only when bottom drawer is opened',
@@ -143,7 +143,7 @@ const BottomDrawer: ForwardRefRenderFunction<
     }).start();
   };
 
-  const {keyboardOpen} = useBottomDrawerKeyboard({
+  const { keyboardOpen } = useBottomDrawerKeyboard({
     modalVisible,
     lastPosition,
     handleSnapToPosition,
@@ -155,7 +155,7 @@ const BottomDrawer: ForwardRefRenderFunction<
       onStartShouldSetPanResponder: (evt, gestureState) => true,
 
       onPanResponderMove: (evt, gestureState) => {
-        const {dy} = gestureState;
+        const { dy } = gestureState;
         let offset = 0;
         if (dy < 0) {
           if (enableSnapping) {
@@ -176,7 +176,7 @@ const BottomDrawer: ForwardRefRenderFunction<
       },
       onPanResponderRelease: (evt, gestureState) => {
         animatedHeight.flattenOffset();
-        const {dy} = gestureState;
+        const { dy } = gestureState;
         if (dy < -safeTopOffset && checkIfAvailable(currentIndex.current + 1)) {
           return handleSnapToIndex(currentIndex.current + 1);
         }
@@ -232,7 +232,7 @@ const BottomDrawer: ForwardRefRenderFunction<
       onRequestClose={() => {
         handleKeyboardAndDrawerClose('backPress', closeOnPressBack);
       }}>
-      <Animated.View
+      {/* <Animated.View
         style={{
           opacity: animatedHeight.interpolate({
             inputRange: [screenHeight - lastPosition.current, screenHeight],
@@ -247,13 +247,13 @@ const BottomDrawer: ForwardRefRenderFunction<
             handleKeyboardAndDrawerClose('backDrop', closeOnBackdropPress);
           }}
         />
-      </Animated.View>
+      </Animated.View> */}
       <Animated.View
         {...(gestureMode === 'content' && panResponder.panHandlers)}
         style={[
           styles.container,
           customStyles.container,
-          {transform: [{translateY: animatedHeight}]},
+          { transform: [{ translateY: animatedHeight }] },
         ]}>
         <View
           {...(gestureMode === 'handle' && panResponder.panHandlers)}
