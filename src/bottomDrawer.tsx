@@ -8,13 +8,16 @@ import React, {
 } from 'react';
 import {
   View,
+  Text,
   Modal,
   Animated,
   PanResponder,
   Pressable,
   Easing,
   Keyboard,
+  TextInput,
 } from 'react-native';
+import { ChevronUp } from 'lucide-react-native';
 import { styles } from './styles';
 import {
   BottomDrawerMethods,
@@ -44,9 +47,13 @@ const BottomDrawer: ForwardRefRenderFunction<
     onClose = null,
     openDuration = defaultOpenDuration,
     closeDuration = defaultCloseDuration,
-    customStyles = { handleContainer: {}, handle: {}, container: {} },
+    customStyles = {
+      handleContainer: {}, handle: {}, container: {
+        backgroundColor: "#172F35"
+      }
+    },
     onOpen = null,
-    closeOnDragDown = true,
+    closeOnDragDown = false, // Disable closing by dragging down
     closeOnPressBack = true,
     backdropOpacity = defaultBackdropOpacity,
     onBackdropPress = null,
@@ -57,18 +64,20 @@ const BottomDrawer: ForwardRefRenderFunction<
     backdropColor = defaultBackdropColor,
     snapPoints = defaultSnapPoints,
     initialIndex = defaultInitialIndex,
-    enableSnapping = false,
-    gestureMode = defaultGestureMode,
+    enableSnapping = true,
+    gestureMode = 'handle', // Force handle-only gesture mode
     overDrag = true,
     safeTopOffset = defaultSafeTopOffset,
     onBackPress = null,
-    // enableDragWhenKeyboardOpened = false,
   } = props;
 
   const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [currentDrawerIndex, setCurrentDrawerIndex] = useState<number>(initialIndex);
   const animatedHeight = useRef(new Animated.Value(screenHeight)).current;
   const lastPosition = useRef<number>(initialHeight);
   const currentIndex = useRef<number>(initialIndex);
+  const contentRef = useRef<View>(null);
+  const [keyboardTriggerSource, setKeyboardTriggerSource] = useState<'internal' | 'external' | null>(null);
 
   const checkIfAvailable = (index: number) => {
     if (!enableSnapping || snapPoints.length <= index || index < 0) {
@@ -114,14 +123,13 @@ const BottomDrawer: ForwardRefRenderFunction<
     if (!checkIfAvailable(index)) {
       throw Error('Provided index is out of range of snapPoints!');
     }
-    if (!keyboardOpen) {
-      lastPosition.current = snapPoints[index];
-      currentIndex.current = index;
-      Animated.spring(animatedHeight, {
-        useNativeDriver: true,
-        toValue: screenHeight - snapPoints[index],
-      }).start();
-    }
+    lastPosition.current = snapPoints[index];
+    currentIndex.current = index;
+    setCurrentDrawerIndex(index);
+    Animated.spring(animatedHeight, {
+      useNativeDriver: true,
+      toValue: screenHeight - snapPoints[index],
+    }).start();
   };
 
   const handleSnapToPosition = (
@@ -148,46 +156,49 @@ const BottomDrawer: ForwardRefRenderFunction<
     lastPosition,
     handleSnapToPosition,
     safeTopOffset,
+    onKeyboardChange: (isOpen) => {
+      if (isOpen) {
+        // Determine keyboard trigger source
+        const activeInputIsInternal = findActiveInputInContent();
+        setKeyboardTriggerSource(activeInputIsInternal ? 'internal' : 'external');
+      } else {
+        setKeyboardTriggerSource(null);
+      }
+    },
   });
+
+  // Find if the active input is within the drawer's content
+  const findActiveInputInContent = (): boolean => {
+    // This is a placeholder. In a real implementation, you'd use
+    // something like React Native's findNodeHandle or a ref system
+    return false;
+  };
+
+  // Handle keyboard-related snapping
+  useEffect(() => {
+    if (keyboardOpen) {
+      if (keyboardTriggerSource === 'external') {
+        // If keyboard was triggered by an external input, snap to first index
+        handleSnapToIndex(0);
+      } else if (keyboardTriggerSource === 'internal') {
+        // If keyboard was triggered by an internal input, snap to second index
+        handleSnapToIndex(1);
+      }
+    }
+  }, [keyboardOpen, keyboardTriggerSource]);
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: (evt, gestureState) => true,
-
+      onStartShouldSetPanResponder: () => true,
       onPanResponderMove: (evt, gestureState) => {
         const { dy } = gestureState;
-        let offset = 0;
-        if (dy < 0) {
-          if (enableSnapping) {
-            if (currentIndex.current + 1 === snapPoints.length) {
-              offset = overDrag ? dy / 6 : 0;
-            } else {
-              offset = dy;
-            }
-          } else {
-            offset = overDrag ? dy / 6 : 0;
-          }
-        } else {
-          offset = dy;
-        }
-        if (lastPosition.current + offset * -1 + safeTopOffset < screenHeight) {
-          animatedHeight.setOffset(offset);
+        if (dy < -safeTopOffset && checkIfAvailable(currentIndex.current + 1)) {
+          handleSnapToIndex(currentIndex.current + 1);
+        } else if (dy > safeTopOffset && checkIfAvailable(currentIndex.current - 1)) {
+          handleSnapToIndex(currentIndex.current - 1);
         }
       },
-      onPanResponderRelease: (evt, gestureState) => {
-        animatedHeight.flattenOffset();
-        const { dy } = gestureState;
-        if (dy < -safeTopOffset && checkIfAvailable(currentIndex.current + 1)) {
-          return handleSnapToIndex(currentIndex.current + 1);
-        }
-        if (dy > safeTopOffset) {
-          if (checkIfAvailable(currentIndex.current - 1)) {
-            return handleSnapToIndex(currentIndex.current - 1);
-          }
-          if (closeOnDragDown) {
-            return handleClose();
-          }
-        }
+      onPanResponderRelease: () => {
         Animated.spring(animatedHeight, {
           toValue: screenHeight - lastPosition.current,
           useNativeDriver: true,
@@ -208,63 +219,58 @@ const BottomDrawer: ForwardRefRenderFunction<
 
   useImperativeHandle(ref, (): any => bottomSheetMethods);
 
-  const handleKeyboardAndDrawerClose = (
-    source: 'backPress' | 'backDrop',
-    drawerClose: boolean,
-  ) => {
-    if (source === 'backPress' && onBackPress) {
-      onBackPress();
-    } else if (source === 'backDrop' && onBackdropPress) {
-      onBackdropPress();
-    }
-    if (keyboardOpen) {
-      Keyboard.dismiss();
-    } else {
-      drawerClose && handleClose();
-    }
-  };
-
   return (
-    <Modal
-      transparent
-      statusBarTranslucent
-      visible={modalVisible}
-      onRequestClose={() => {
-        handleKeyboardAndDrawerClose('backPress', closeOnPressBack);
-      }}>
-      {/* <Animated.View
-        style={{
-          opacity: animatedHeight.interpolate({
-            inputRange: [screenHeight - lastPosition.current, screenHeight],
-            outputRange: [backdropOpacity, 0],
-            extrapolate: 'clamp',
-          }),
-          flex: 1,
-        }}>
-        <Pressable
-          style={{flex: 1, backgroundColor: backdropColor}}
-          onPress={() => {
-            handleKeyboardAndDrawerClose('backDrop', closeOnBackdropPress);
-          }}
-        />
-      </Animated.View> */}
-      <Animated.View
-        {...(gestureMode === 'content' && panResponder.panHandlers)}
-        style={[
-          styles.container,
-          customStyles.container,
-          { transform: [{ translateY: animatedHeight }] },
-        ]}>
-        <View
-          {...(gestureMode === 'handle' && panResponder.panHandlers)}
-          style={[styles.handleContainer, customStyles.handleContainer]}>
-          <View style={[styles.handle, customStyles.handle]} />
-        </View>
-        <BottomSheetContext.Provider value={bottomSheetMethods}>
-          {children}
-        </BottomSheetContext.Provider>
-      </Animated.View>
-    </Modal>
+    <Animated.View
+      ref={contentRef}
+      style={[
+        styles.container,
+        customStyles.container,
+        { transform: [{ translateY: animatedHeight }] },
+      ]}>
+      <View
+        {...panResponder.panHandlers}
+        style={[styles.handleContainer, customStyles.handleContainer]}>
+        <View style={[styles.handle, customStyles.handle]} />
+      </View>
+      <BottomSheetContext.Provider value={bottomSheetMethods}>
+        {currentDrawerIndex === 0 ? (
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              paddingInline: 20,
+              marginTop: -15
+            }}
+          >
+            <Text
+              style={[
+                {
+                  color: '#FFFFFF',
+                  fontSize: 22,
+                  marginTop: 5,
+                  fontWeight: 600,
+                },
+              ]}
+            >
+              Enter code
+            </Text>
+            <Pressable onPress={() => handleSnapToIndex(1)}>
+              <ChevronUp
+                color="#172F35"
+                size={40}
+                style={{
+                  backgroundColor: "#FFF",
+                  borderRadius: "50%"
+                }}
+              />
+            </Pressable>
+
+          </View>
+        ) : (
+          children
+        )}
+      </BottomSheetContext.Provider>
+    </Animated.View>
   );
 };
 

@@ -5,11 +5,12 @@ export const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
     position: 'absolute',
-    bottom: 0,
+    bottom: -40,
     left: 0,
     right: 0,
     borderRadius: 20,
-    // height: screenHeight,
+    height: screenHeight,
+    zIndex: 100,
   },
   handleContainer: {
     width: '100%',
@@ -19,7 +20,7 @@ export const styles = StyleSheet.create({
   },
   handle: {
     backgroundColor: '#D9D9D9',
-    width: 45,
+    width: 62,
     height: 5,
     borderRadius: 10,
   },
